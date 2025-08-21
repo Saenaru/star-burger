@@ -7,6 +7,7 @@ from .models import Product
 from .models import ProductCategory
 from .models import Restaurant
 from .models import RestaurantMenuItem
+from .models import Order, OrderItem
 
 
 class RestaurantMenuItemInline(admin.TabularInline):
@@ -104,3 +105,49 @@ class ProductAdmin(admin.ModelAdmin):
 @admin.register(ProductCategory)
 class ProductAdmin(admin.ModelAdmin):
     pass
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+    readonly_fields = ['product', 'quantity', 'price']
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = [
+        'id', 
+        'firstname', 
+        'lastname', 
+        'phonenumber', 
+        'address',
+        'status',
+        'created_at',
+        'get_items_count',
+        'get_total'
+    ]
+    list_filter = ['status', 'created_at', 'payment_method']
+    search_fields = ['firstname', 'lastname', 'phonenumber', 'address']
+    readonly_fields = ['created_at', 'called_at', 'delivered_at']
+    inlines = [OrderItemInline]
+    list_editable = ['status']
+    
+    fieldsets = (
+        ('Клиент', {
+            'fields': ('firstname', 'lastname', 'phonenumber', 'address')
+        }),
+        ('Заказ', {
+            'fields': ('status', 'payment_method', 'comment')
+        }),
+        ('Временные метки', {
+            'fields': ('created_at', 'called_at', 'delivered_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+@admin.register(OrderItem)
+class OrderItemAdmin(admin.ModelAdmin):
+    list_display = ['order', 'product', 'quantity', 'price', 'get_subtotal']
+    list_filter = ['order__status']
+    
+    def get_subtotal(self, obj):
+        return obj.quantity * obj.price
+    get_subtotal.short_description = 'сумма'

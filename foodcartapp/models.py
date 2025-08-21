@@ -1,6 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator
-
+from phonenumber_field.modelfields import PhoneNumberField
 
 class Restaurant(models.Model):
     name = models.CharField(
@@ -121,3 +121,120 @@ class RestaurantMenuItem(models.Model):
 
     def __str__(self):
         return f"{self.restaurant.name} - {self.product.name}"
+
+class Order(models.Model):
+    STATUS_CHOICES = [
+        ('new', 'Новый'),
+        ('processing', 'В обработке'),
+        ('cooking', 'Готовится'),
+        ('delivering', 'Доставляется'),
+        ('completed', 'Выполнен'),
+        ('cancelled', 'Отменен'),
+    ]
+
+    firstname = models.CharField(
+        'имя',
+        max_length=50
+    )
+    lastname = models.CharField(
+        'фамилия',
+        max_length=50,
+        blank=True
+    )
+    phonenumber = models.CharField(
+        'телефон',
+        max_length=20
+    )
+    address = models.CharField(
+        'адрес',
+        max_length=200
+    )
+    status = models.CharField(
+        'статус',
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='new',
+        db_index=True
+    )
+    comment = models.TextField(
+        'комментарий',
+        blank=True
+    )
+    created_at = models.DateTimeField(
+        'создан',
+        auto_now_add=True,
+        db_index=True
+    )
+    called_at = models.DateTimeField(
+        'звонок',
+        blank=True,
+        null=True,
+        db_index=True
+    )
+    delivered_at = models.DateTimeField(
+        'доставлен',
+        blank=True,
+        null=True,
+        db_index=True
+    )
+    payment_method = models.CharField(
+        'способ оплаты',
+        max_length=20,
+        choices=[
+            ('cash', 'Наличными'),
+            ('card', 'Картой'),
+            ('online', 'Онлайн'),
+        ],
+        default='cash'
+    )
+
+    class Meta:
+        verbose_name = 'заказ'
+        verbose_name_plural = 'заказы'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Заказ #{self.id} от {self.firstname} {self.lastname}"
+
+    def get_total(self):
+        return sum(item.price * item.quantity for item in self.items.all())
+    
+    get_total.short_description = 'сумма заказа'
+    
+    def get_items_count(self):
+        return self.items.count()
+    
+    get_items_count.short_description = 'количество позиций'
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='items',
+        verbose_name='заказ'
+    )
+    product = models.ForeignKey(
+        'Product',
+        on_delete=models.CASCADE,
+        related_name='order_items',
+        verbose_name='товар'
+    )
+    quantity = models.PositiveIntegerField(
+        'количество',
+        validators=[MinValueValidator(1)]
+    )
+    price = models.DecimalField(
+        'цена',
+        max_digits=8,
+        decimal_places=2,
+        validators=[MinValueValidator(0)]
+    )
+
+    class Meta:
+        verbose_name = 'позиция заказа'
+        verbose_name_plural = 'позиции заказа'
+        unique_together = ['order', 'product']
+
+    def __str__(self):
+        return f"{self.product.name} x{self.quantity} в заказе #{self.order.id}"
