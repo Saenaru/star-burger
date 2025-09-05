@@ -88,3 +88,17 @@ class OrderSerializer(serializers.ModelSerializer):
             )
         
         return order
+    
+class OrderOutputSerializer(serializers.ModelSerializer):
+    products = OrderItemSerializer(many=True, read_only=True, source='items')
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    total = serializers.DecimalField(source='get_total', max_digits=10, decimal_places=2, read_only=True)
+    
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'firstname', 'lastname', 'phonenumber', 'address', 
+            'status', 'status_display', 'comment', 'created_at',
+            'payment_method', 'products', 'total'
+        ]
+        read_only_fields = fields

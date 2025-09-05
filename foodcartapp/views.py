@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import serializers
 from .models import Order, OrderItem, Product
-from .serializers import OrderSerializer
+from .serializers import OrderSerializer, OrderOutputSerializer
 
 
 def banners_list_api(request):
@@ -73,10 +73,13 @@ class RegisterOrderView(APIView):
             
             self._log_order(order)
             
+            output_serializer = OrderOutputSerializer(order)
+            
             return Response({
                 'status': 'success', 
                 'message': 'Заказ сохранен',
-                'order_id': order.id
+                'order_id': order.id,
+                'order': output_serializer.data
             }, status=status.HTTP_201_CREATED)
             
         except serializers.ValidationError as e:
