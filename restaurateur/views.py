@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth import views as auth_views
 
 
-from foodcartapp.models import Product, Restaurant, Order
+from foodcartapp.models import Product, Restaurant, Order, RestaurantMenuItem
 
 
 class Login(forms.Form):
@@ -65,18 +65,29 @@ def is_manager(user):
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_products(request):
-    restaurants = list(Restaurant.objects.order_by('name'))
-    products = list(Product.objects.prefetch_related('menu_items'))
+    restaurants = Restaurant.objects.order_by('name')
+    products = Product.objects.prefetch_related(
+        'menu_items__restaurant'
+    ).select_related('category')
 
+    restaurant_ids = [restaurant.id for restaurant in restaurants]
+    availability_dict = {}
+    
+    menu_items = RestaurantMenuItem.objects.filter(
+        restaurant_id__in=restaurant_ids
+    ).select_related('restaurant', 'product')
+    for item in menu_items:
+        key = (item.product_id, item.restaurant_id)
+        availability_dict[key] = item.availability
     products_with_restaurant_availability = []
     for product in products:
-        availability = {item.restaurant_id: item.availability for item in product.menu_items.all()}
-        ordered_availability = [availability.get(restaurant.id, False) for restaurant in restaurants]
-
+        ordered_availability = [
+            availability_dict.get((product.id, restaurant.id), False)
+            for restaurant in restaurants
+        ]
         products_with_restaurant_availability.append(
             (product, ordered_availability)
         )
-
     return render(request, template_name="products_list.html", context={
         'products_with_restaurant_availability': products_with_restaurant_availability,
         'restaurants': restaurants,
@@ -85,8 +96,9 @@ def view_products(request):
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_restaurants(request):
+    restaurants = Restaurant.objects.all()
     return render(request, template_name="restaurants_list.html", context={
-        'restaurants': Restaurant.objects.all(),
+        'restaurants': restaurants,
     })
 
 
@@ -94,7 +106,10 @@ def view_restaurants(request):
 def view_orders(request):
     status_filter = request.GET.get('status', '')
     
-    orders = Order.objects.prefetch_related('items').order_by('-created_at')
+    orders = Order.objects.prefetch_related(
+        'items__product'
+    ).select_related(
+    ).order_by('-created_at')
     
     if status_filter:
         orders = orders.filter(status=status_filter)
