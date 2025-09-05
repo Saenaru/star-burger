@@ -141,9 +141,9 @@ class Order(models.Model):
         max_length=50,
         blank=True
     )
-    phonenumber = models.CharField(
+    phonenumber = PhoneNumberField(
         'телефон',
-        max_length=20
+        db_index=True
     )
     address = models.CharField(
         'адрес',

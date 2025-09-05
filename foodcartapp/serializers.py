@@ -1,10 +1,23 @@
 from rest_framework import serializers
+from phonenumber_field.serializerfields import PhoneNumberField
 from django.core.validators import MinValueValidator
 from .models import Order, OrderItem, Product
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
-    quantity = serializers.IntegerField(validators=[MinValueValidator(1)])
+    product = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        error_messages={
+            'does_not_exist': 'Продукт с ID "{pk_value}" не существует',
+            'incorrect_type': 'ID продукта должно быть числом'
+        }
+    )
+    quantity = serializers.IntegerField(
+        validators=[MinValueValidator(1)],
+        error_messages={
+            'min_value': 'Количество не может быть меньше 1',
+            'invalid': 'Количество должно быть числом'
+        }
+    )
     
     class Meta:
         model = OrderItem
@@ -12,24 +25,32 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     products = OrderItemSerializer(many=True, write_only=True)
+    phonenumber = PhoneNumberField(
+        error_messages={
+            'blank': 'Телефон не может быть пустым',
+            'invalid': 'Введен некорректный номер телефона'
+        }
+    )
+    firstname = serializers.CharField(
+        error_messages={
+            'blank': 'Имя не может быть пустым',
+            'invalid': 'Имя должно быть строкой'
+        }
+    )
+    lastname = serializers.CharField(required=False, allow_blank=True)
+    address = serializers.CharField(
+        error_messages={
+            'blank': 'Адрес не может быть пустым'
+        }
+    )
     
     class Meta:
         model = Order
         fields = ['firstname', 'lastname', 'phonenumber', 'address', 'products']
-        extra_kwargs = {
-            'firstname': {'required': True},
-            'phonenumber': {'required': True},
-            'address': {'required': True},
-        }
     
     def validate_products(self, value):
         if not value or len(value) == 0:
             raise serializers.ValidationError("Заказ должен содержать хотя бы один товар")
-        return value
-    
-    def validate_phonenumber(self, value):
-        if not value.strip():
-            raise serializers.ValidationError("Телефон не может быть пустым")
         return value
     
     def validate(self, data):

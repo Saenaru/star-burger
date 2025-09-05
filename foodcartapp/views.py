@@ -87,7 +87,7 @@ class RegisterOrderView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
             
         except Exception as e:
-            print(f"Неожиданная ошибка при создании заказа: {e}")
+            print(f"Неожиданная ошибка: {type(e).__name__}: {e}")
             return Response({
                 'status': 'error',
                 'message': 'Внутренняя ошибка сервера'
