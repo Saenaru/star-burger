@@ -106,9 +106,8 @@ def view_restaurants(request):
 def view_orders(request):
     status_filter = request.GET.get('status', '')
     
-    orders = Order.objects.prefetch_related(
+    orders = Order.objects.with_total_price().prefetch_related(
         'items__product'
-    ).select_related(
     ).order_by('-created_at')
     
     if status_filter:
