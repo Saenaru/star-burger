@@ -1,22 +1,4 @@
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from django.templatetags.static import static
-import json
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from django.views import View
-from django.db import transaction
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-
-from .models import Order, OrderItem, Product
-from .serializers import ProductSerializer
-
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
 from django.templatetags.static import static
 import json
 from django.http import JsonResponse
@@ -26,12 +8,11 @@ from django.views import View
 from django.db import transaction
 
 from .models import Order, OrderItem, Product
-from .serializers import ProductSerializer
 
-@api_view(['GET'])
+
 def banners_list_api(request):
     # FIXME move data to db?
-    data = [
+    return JsonResponse([
         {
             'title': 'Burger',
             'src': static('burger.jpg'),
@@ -47,35 +28,52 @@ def banners_list_api(request):
             'src': static('tasty.jpg'),
             'text': 'Food is incomplete without a tasty dessert',
         }
-    ]
-    return Response(data)
+    ], safe=False, json_dumps_params={
+        'ensure_ascii': False,
+        'indent': 4,
+    })
 
-@api_view(['GET'])
+
 def product_list_api(request):
     products = Product.objects.select_related('category').available()
-    serializer = ProductSerializer(products, many=True, context={'request': request})
-    return Response(serializer.data)
+
+    dumped_products = []
+    for product in products:
+        dumped_product = {
+            'id': product.id,
+            'name': product.name,
+            'price': product.price,
+            'special_status': product.special_status,
+            'description': product.description,
+            'category': {
+                'id': product.category.id,
+                'name': product.category.name,
+            } if product.category else None,
+            'image': product.image.url,
+            'restaurant': {
+                'id': product.id,
+                'name': product.name,
+            }
+        }
+        dumped_products.append(dumped_product)
+    return JsonResponse(dumped_products, safe=False, json_dumps_params={
+        'ensure_ascii': False,
+        'indent': 4,
+    })
 
 
-class RegisterOrderView(APIView):
-    @csrf_exempt
-    @transaction.atomic
-    def post(self, request):
+@csrf_exempt
+@transaction.atomic
+def register_order(request):
+    if request.method == 'POST':
         try:
-            order_data = request.data
-            
-            payment_method = order_data.get('payment_method', 'cash')
-            
-            valid_payment_methods = ['cash', 'card', 'online']
-            if payment_method not in valid_payment_methods:
-                payment_method = 'cash'
+            order_data = json.loads(request.body)
             
             order = Order.objects.create(
                 firstname=order_data.get('firstname', ''),
                 lastname=order_data.get('lastname', ''),
                 phonenumber=order_data.get('phonenumber', ''),
                 address=order_data.get('address', ''),
-                payment_method=payment_method,
                 status='new'
             )
             
@@ -92,20 +90,32 @@ class RegisterOrderView(APIView):
                         price=product.price
                     )
                 except Product.DoesNotExist:
-                    return Response(
-                        {'status': 'error', 'message': f'Товар с ID {product_id} не найден'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                    raise Exception(f"Товар с ID {product_id} не найден")
             
-            return Response({
+            print("=" * 50)
+            print(f"СОХРАНЕН ЗАКАЗ #{order.id}")
+            print(f"Имя: {order.firstname}")
+            print(f"Фамилия: {order.lastname}")
+            print(f"Телефон: {order.phonenumber}")
+            print(f"Адрес: {order.address}")
+            print(f"Статус: {order.get_status_display()}")
+            print("Товары:")
+            
+            for item in order.items.all():
+                print(f"  - {item.product.name}: {item.quantity} x {item.price} = {item.quantity * item.price}")
+            
+            print(f"Итого: {order.get_total()}")
+            print("=" * 50)
+            
+            return JsonResponse({
                 'status': 'success', 
                 'message': 'Заказ сохранен',
                 'order_id': order.id
             })
             
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'Неверный JSON'}, status=400)
         except Exception as e:
-            return Response(
-                {'status': 'error', 'message': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    
+    return JsonResponse({'status': 'error', 'message': 'Метод не разрешен'}, status=405)
