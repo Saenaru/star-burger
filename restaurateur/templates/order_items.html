@@ -11,20 +11,74 @@
   <br/>
   <br/>
   <div class="container">
+    <div class="row" style="margin-bottom: 20px;">
+      <div class="col-md-12">
+        <form method="get" class="form-inline">
+          <div class="form-group">
+            <label for="status">Фильтр по статусу:</label>
+            <select name="status" id="status" class="form-control" style="margin-left: 10px;">
+              <option value="">Все необработанные</option>
+              <option value="new" {% if status_filter == 'new' %}selected{% endif %}>Новые</option>
+              <option value="processing" {% if status_filter == 'processing' %}selected{% endif %}>В обработке</option>
+              <option value="cooking" {% if status_filter == 'cooking' %}selected{% endif %}>Готовятся</option>
+              <option value="delivering" {% if status_filter == 'delivering' %}selected{% endif %}>Доставляются</option>
+              <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Выполненные</option>
+              <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Отмененные</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-default" style="margin-left: 10px;">Применить</button>
+          <a href="{% url 'restaurateur:view_orders' %}" class="btn btn-link">Сбросить</a>
+        </form>
+      </div>
+    </div>
    <table class="table table-responsive">
     <tr>
       <th>ID заказа</th>
+      <th>Статус</th>
       <th>Клиент</th>
       <th>Телефон</th>
       <th>Адрес доставки</th>
+      <th>Сумма</th>
+      <th>Товары</th>
+      <th>Создан</th>
+      <th>Действия</th>
     </tr>
 
-    {% for item in order_items %}
+    {% for order in orders %}
       <tr>
-        <td>-</td>
-        <td>-</td>
-        <td>-</td>
-        <td>-</td>
+        <td>#{{ order.id }}</td>
+        <td>
+          <span class="label label-{% if order.status == 'new' %}warning{% else %}info{% endif %}">
+            {{ order.get_status_display }}
+          </span>
+        </td>
+        <td>{{ order.firstname }} {{ order.lastname }}</td>
+        <td>{{ order.phonenumber }}</td>
+        <td>{{ order.address }}</td>
+        <td>{{ order.get_total }} руб.</td>
+        <td>
+          <ul class="list-unstyled" style="margin-bottom: 0;">
+            {% for item in order.items.all %}
+            <li>{{ item.product.name }} × {{ item.quantity }}</li>
+            {% endfor %}
+          </ul>
+        </td>
+        <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
+        <td>
+          <a href="{% url 'admin:foodcartapp_order_change' order.id %}" 
+             class="btn btn-default btn-xs" target="_blank">
+            Редактировать
+          </a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="9" class="text-center">
+          <div class="alert alert-info">
+            <h4>Нет необработанных заказов</h4>
+            <p>Все заказы обработаны или новых заказов пока нет.</p>
+          </div>
+        </td>
       </tr>
     {% endfor %}
    </table>
