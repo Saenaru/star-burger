@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.shortcuts import reverse
+from django.shortcuts import reverse, redirect
 from django.templatetags.static import static
 from django.utils.html import format_html
 from django.db.models import Sum, F, Count
@@ -93,6 +93,24 @@ class OrderAdmin(admin.ModelAdmin):
             return f"{obj.total_price:.2f} руб."
         return "0.00 руб."
     get_total_display.short_description = 'сумма заказа'
+    
+    def response_change(self, request, obj):
+        next_url = request.GET.get('next')
+        
+        if next_url:
+            from django.contrib import messages
+            messages.success(request, f'Заказ #{obj.id} успешно обновлен.')
+            
+            return redirect(next_url)
+        
+        return super().response_change(request, obj)
+    
+    def response_add(self, request, obj, post_url_continue=None):
+        """Обработка создания нового заказа (если нужно)"""
+        next_url = request.GET.get('next')
+        if next_url:
+            return redirect(next_url)
+        return super().response_add(request, obj, post_url_continue)
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):

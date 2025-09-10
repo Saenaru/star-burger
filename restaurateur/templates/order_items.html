@@ -65,8 +65,8 @@
         </td>
         <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
         <td>
-          <a href="{% url 'admin:foodcartapp_order_change' order.id %}" 
-             class="btn btn-default btn-xs" target="_blank">
+          <a href="{% url 'admin:foodcartapp_order_change' order.id %}?next={% url 'restaurateur:view_orders' %}" 
+            class="btn btn-default btn-xs" target="_blank">
             Редактировать
           </a>
         </td>
