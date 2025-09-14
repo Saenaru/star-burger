@@ -3,6 +3,7 @@ from django.shortcuts import redirect, render
 from django.views import View
 from django.urls import reverse_lazy
 from django.contrib.auth.decorators import user_passes_test
+from django.db.models import Q
 
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import views as auth_views
@@ -105,6 +106,7 @@ def view_restaurants(request):
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
     status_filter = request.GET.get('status', '')
+    search_query = request.GET.get('q', '')
     
     orders = Order.objects.with_total_price().prefetch_related(
         'items__product'
@@ -113,9 +115,21 @@ def view_orders(request):
     if status_filter:
         orders = orders.filter(status=status_filter)
     else:
-        orders = orders.filter(status__in=['new', 'processing'])
+        orders = orders.filter(status__in=['new', 'processing', 'cooking', 'delivering'])
+    
+    if search_query:
+        orders = orders.filter(
+            Q(firstname__icontains=search_query) |
+            Q(lastname__icontains=search_query) |
+            Q(phonenumber__icontains=search_query) |
+            Q(address__icontains=search_query) |
+            Q(comment__icontains=search_query) |
+            Q(items__product__name__icontains=search_query)
+        ).distinct()
     
     return render(request, template_name='order_items.html', context={
         'orders': orders,
-        'status_filter': status_filter
+        'status_filter': status_filter,
+        'search_query': search_query,
+        'order_status_choices': Order.STATUS_CHOICES
     })

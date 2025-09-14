@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
 from django.db.models import Sum, F
+from django.utils import timezone
 
 class Restaurant(models.Model):
     name = models.CharField('название', max_length=50)
@@ -109,8 +110,8 @@ class Order(models.Model):
     status = models.CharField('статус', max_length=20, choices=STATUS_CHOICES, default='new', db_index=True)
     comment = models.TextField('комментарий', blank=True)
     created_at = models.DateTimeField('создан', auto_now_add=True, db_index=True)
-    called_at = models.DateTimeField('звонок', blank=True, null=True, db_index=True)
-    delivered_at = models.DateTimeField('доставлен', blank=True, null=True, db_index=True)
+    called_at = models.DateTimeField('звонок', blank=True, null=True, db_index=True, editable=True)
+    delivered_at = models.DateTimeField('доставлен', blank=True, null=True, db_index=True, editable=True)
     payment_method = models.CharField(
         'способ оплаты',
         max_length=20,
@@ -124,6 +125,49 @@ class Order(models.Model):
         verbose_name = 'заказ'
         verbose_name_plural = 'заказы'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['phonenumber']),
+            models.Index(fields=['lastname', 'firstname']),
+            models.Index(fields=['address']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['called_at']),
+            models.Index(fields=['delivered_at']),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            old_order = Order.objects.get(pk=self.pk)
+            
+            if (self.status == 'processing' and old_order.status != 'processing' and 
+                not self.called_at):
+                self.called_at = timezone.now()
+            
+            if (self.status == 'completed' and old_order.status != 'completed' and 
+                not self.delivered_at):
+                self.delivered_at = timezone.now()
+                
+            if self.status == 'cancelled' and old_order.status != 'cancelled':
+                self.called_at = None
+                self.delivered_at = None
+        
+        super().save(*args, **kwargs)
+
+
+    def get_processing_time(self):
+        if self.called_at and self.created_at:
+            return self.called_at - self.created_at
+        return None
+    
+    def get_delivery_time(self):
+        if self.delivered_at and self.called_at:
+            return self.delivered_at - self.called_at
+        return None
+    
+    def get_total_time(self):
+        if self.delivered_at and self.created_at:
+            return self.delivered_at - self.created_at
+        return None
 
     def __str__(self):
         return f"Заказ #{self.id} от {self.firstname} {self.lastname}"

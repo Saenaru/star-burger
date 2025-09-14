@@ -8,16 +8,27 @@
   </center>
 
   <hr/>
-  <br/>
-  <br/>
+  
   <div class="container">
     <div class="row" style="margin-bottom: 20px;">
       <div class="col-md-12">
         <form method="get" class="form-inline">
           <div class="form-group">
-            <label for="status">Фильтр по статусу:</label>
-            <select name="status" id="status" class="form-control" style="margin-left: 10px;">
-              <option value="">Все необработанные</option>
+            <div class="input-group">
+              <input type="text" name="q" class="form-control" placeholder="Поиск по клиенту, телефону, адресу..." 
+                     value="{{ search_query }}" style="width: 300px;">
+              <span class="input-group-btn">
+                <button class="btn btn-default" type="submit">
+                  <span class="glyphicon glyphicon-search"></span> Найти
+                </button>
+              </span>
+            </div>
+          </div>
+          
+          <div class="form-group" style="margin-left: 20px;">
+            <label for="status" style="margin-right: 10px;">Статус:</label>
+            <select name="status" id="status" class="form-control">
+              <option value="">Все активные</option>
               <option value="new" {% if status_filter == 'new' %}selected{% endif %}>Новые</option>
               <option value="processing" {% if status_filter == 'processing' %}selected{% endif %}>В обработке</option>
               <option value="cooking" {% if status_filter == 'cooking' %}selected{% endif %}>Готовятся</option>
@@ -26,30 +37,51 @@
               <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Отмененные</option>
             </select>
           </div>
-          <button type="submit" class="btn btn-default" style="margin-left: 10px;">Применить</button>
-          <a href="{% url 'restaurateur:view_orders' %}" class="btn btn-link">Сбросить</a>
+          
+          <button type="submit" class="btn btn-primary" style="margin-left: 10px;">Применить</button>
+          <a href="{% url 'restaurateur:view_orders' %}" class="btn btn-default" style="margin-left: 10px;">Сбросить</a>
         </form>
       </div>
     </div>
-   <table class="table table-responsive">
-    <tr>
-      <th>ID заказа</th>
-      <th>Статус</th>
-      <th>Клиент</th>
-      <th>Телефон</th>
-      <th>Адрес доставки</th>
-      <th>Комментарий</th>  <!-- Добавленная колонка -->
-      <th>Сумма</th>
-      <th>Товары</th>
-      <th>Создан</th>
-      <th>Действия</th>
-    </tr>
 
+    {% if search_query or status_filter %}
+    <div class="row" style="margin-bottom: 15px;">
+      <div class="col-md-12">
+        <div class="alert alert-info">
+          <strong>Найдено заказов:</strong> {{ orders.count }}
+          {% if search_query %} по запросу "{{ search_query }}"{% endif %}
+          {% if status_filter %} со статусом "{{ status_filter }}"{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+   <table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Статус</th>
+        <th>Клиент</th>
+        <th>Телефон</th>
+        <th>Адрес</th>
+        <th>Комментарий</th>
+        <th>Сумма</th>
+        <th>Товары</th>
+        <th>Время</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
     {% for order in orders %}
       <tr>
-        <td>#{{ order.id }}</td>
+        <td><strong>#{{ order.id }}</strong></td>
         <td>
-          <span class="label label-{% if order.status == 'new' %}warning{% else %}info{% endif %}">
+          <span class="label label-{% if order.status == 'new' %}warning
+                                  {% elif order.status == 'processing' %}info
+                                  {% elif order.status == 'cooking' %}primary
+                                  {% elif order.status == 'delivering' %}success
+                                  {% elif order.status == 'completed' %}default
+                                  {% else %}danger{% endif %}">
             {{ order.get_status_display }}
           </span>
         </td>
@@ -59,38 +91,53 @@
         <td>
           {% if order.comment %}
             <span class="comment-tooltip" title="{{ order.comment }}">
-              {{ order.comment|truncatewords:5 }}
+              {{ order.comment|truncatewords:3 }}
             </span>
           {% else %}
             <span class="text-muted">—</span>
           {% endif %}
         </td>
-        <td>{{ order.get_total }} руб.</td>
+        <td><strong>{{ order.get_total }} руб.</strong></td>
         <td>
           <ul class="list-unstyled" style="margin-bottom: 0;">
             {% for item in order.items.all %}
-            <li>{{ item.product.name }} × {{ item.quantity }}</li>
+            <li><small>{{ item.product.name }} × {{ item.quantity }}</small></li>
             {% endfor %}
           </ul>
         </td>
-        <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
+        <td>
+          <small>
+            <div>Создан: {{ order.created_at|date:"d.m.Y H:i" }}</div>
+            {% if order.called_at %}
+            <div>Звонок: {{ order.called_at|date:"d.m.Y H:i" }}</div>
+            {% endif %}
+            {% if order.delivered_at %}
+            <div>Доставка: {{ order.delivered_at|date:"d.m.Y H:i" }}</div>
+            {% endif %}
+          </small>
+        </td>
         <td>
           <a href="{% url 'admin:foodcartapp_order_change' order.id %}?next={% url 'restaurateur:view_orders' %}" 
-            class="btn btn-default btn-xs" target="_blank">
-            Редактировать
+            class="btn btn-default btn-xs" target="_blank" title="Редактировать заказ">
+            <span class="glyphicon glyphicon-edit"></span>
           </a>
         </td>
       </tr>
     {% empty %}
       <tr>
-        <td colspan="10" class="text-center">  <!-- Обновите colspan на 10 -->
-          <div class="alert alert-info">
-            <h4>Нет необработанных заказов</h4>
-            <p>Все заказы обработаны или новых заказов пока нет.</p>
+        <td colspan="10" class="text-center">
+          <div class="alert alert-warning">
+            <h4>{% if search_query or status_filter %}Заказы не найдены{% else %}Нет активных заказов{% endif %}</h4>
+            <p>
+              {% if search_query %}По запросу "{{ search_query }}" ничего не найдено.{% endif %}
+              {% if status_filter %}С выбранным статусом заказов нет.{% endif %}
+              {% if not search_query and not status_filter %}Все заказы обработаны или новых пока нет.{% endif %}
+            </p>
           </div>
         </td>
       </tr>
     {% endfor %}
+    </tbody>
    </table>
   </div>
 {% endblock %}

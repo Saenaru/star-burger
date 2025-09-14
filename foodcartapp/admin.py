@@ -64,19 +64,24 @@ class OrderAdmin(admin.ModelAdmin):
         'address',
         'status',
         'created_at',
+        'called_at',
+        'delivered_at',
         'get_items_count',
         'get_total_display'
     ]
-    list_filter = ['status', 'created_at', 'payment_method']
+    list_filter = ['status', 'created_at', 'payment_method', 'called_at', 'delivered_at']
     search_fields = ['firstname', 'lastname', 'phonenumber', 'address']
-    readonly_fields = ['created_at', 'called_at', 'delivered_at']
+    readonly_fields = ['created_at']
     inlines = [OrderItemInline]
     list_editable = ['status']
     
     fieldsets = (
         ('Клиент', {'fields': ('firstname', 'lastname', 'phonenumber', 'address')}),
         ('Заказ', {'fields': ('status', 'payment_method', 'comment')}),
-        ('Временные метки', {'fields': ('created_at', 'called_at', 'delivered_at'), 'classes': ('collapse',)}),
+        ('Временные метки', {
+            'fields': ('created_at', 'called_at', 'delivered_at'),
+            'classes': ('collapse',)
+        }),
     )
 
     def get_queryset(self, request):
