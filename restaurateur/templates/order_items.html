@@ -48,7 +48,7 @@
     <div class="row" style="margin-bottom: 15px;">
       <div class="col-md-12">
         <div class="alert alert-info">
-          <strong>Найдено заказов:</strong> {{ orders.count }}
+          <strong>Найдено заказов:</strong> {{ orders_with_restaurants|length }}
           {% if search_query %} по запросу "{{ search_query }}"{% endif %}
           {% if status_filter %} со статусом "{{ status_filter }}"{% endif %}
         </div>
@@ -69,6 +69,7 @@
         <th>Комментарий</th>
         <th>Сумма</th>
         <th>Товары</th>
+        <th>Время</th>
         <th>Действия</th>
       </tr>
     </thead>
@@ -136,6 +137,17 @@
           </ul>
         </td>
         <td>
+          <small>
+            <div>Создан: {{ order.created_at|date:"d.m.Y H:i" }}</div>
+            {% if order.called_at %}
+            <div>Звонок: {{ order.called_at|date:"d.m.Y H:i" }}</div>
+            {% endif %}
+            {% if order.delivered_at %}
+            <div>Доставка: {{ order.delivered_at|date:"d.m.Y H:i" }}</div>
+            {% endif %}
+          </small>
+        </td>
+        <td>
           <a href="{% url 'admin:foodcartapp_order_change' order.id %}?next={% url 'restaurateur:view_orders' %}" 
             class="btn btn-default btn-xs" target="_blank" title="Редактировать заказ">
             <span class="glyphicon glyphicon-edit"></span>
@@ -145,9 +157,14 @@
       {% endwith %}
     {% empty %}
       <tr>
-        <td colspan="11" class="text-center">
+        <td colspan="12" class="text-center">
           <div class="alert alert-warning">
             <h4>{% if search_query or status_filter %}Заказы не найдены{% else %}Нет активных заказов{% endif %}</h4>
+            <p>
+              {% if search_query %}По запросу "{{ search_query }}" ничего не найдено.{% endif %}
+              {% if status_filter %}С выбранным статусом заказов нет.{% endif %}
+              {% if not search_query and not status_filter %}Все заказы обработаны или новых пока нет.{% endif %}
+            </p>
           </div>
         </td>
       </tr>
