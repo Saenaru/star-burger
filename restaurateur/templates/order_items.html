@@ -38,6 +38,7 @@
       <th>Клиент</th>
       <th>Телефон</th>
       <th>Адрес доставки</th>
+      <th>Комментарий</th>  <!-- Добавленная колонка -->
       <th>Сумма</th>
       <th>Товары</th>
       <th>Создан</th>
@@ -55,6 +56,15 @@
         <td>{{ order.firstname }} {{ order.lastname }}</td>
         <td>{{ order.phonenumber }}</td>
         <td>{{ order.address }}</td>
+        <td>
+          {% if order.comment %}
+            <span class="comment-tooltip" title="{{ order.comment }}">
+              {{ order.comment|truncatewords:5 }}
+            </span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
         <td>{{ order.get_total }} руб.</td>
         <td>
           <ul class="list-unstyled" style="margin-bottom: 0;">
@@ -73,7 +83,7 @@
       </tr>
     {% empty %}
       <tr>
-        <td colspan="9" class="text-center">
+        <td colspan="10" class="text-center">  <!-- Обновите colspan на 10 -->
           <div class="alert alert-info">
             <h4>Нет необработанных заказов</h4>
             <p>Все заказы обработаны или новых заказов пока нет.</p>
