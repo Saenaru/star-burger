@@ -65,15 +65,16 @@
         <th>Телефон</th>
         <th>Адрес</th>
         <th>Способ оплаты</th>
+        <th>Ресторан</th>
         <th>Комментарий</th>
         <th>Сумма</th>
         <th>Товары</th>
-        <th>Время</th>
         <th>Действия</th>
       </tr>
     </thead>
     <tbody>
-    {% for order in orders %}
+    {% for order_data in orders_with_restaurants %}
+      {% with order=order_data.order %}
       <tr>
         <td><strong>#{{ order.id }}</strong></td>
         <td>
@@ -97,6 +98,27 @@
           </span>
         </td>
         <td>
+          {% if order.assigned_restaurant %}
+            <strong>{{ order.assigned_restaurant.name }}</strong>
+          {% elif order_data.available_restaurants %}
+            <div class="restaurant-info">
+              <strong>Могут приготовить:</strong>
+              <ul class="list-unstyled">
+                {% for restaurant in order_data.available_restaurants %}
+                <li>
+                  <small>{{ restaurant.name }}</small>
+                  {% if restaurant.address %}
+                    <br><small class="text-muted">{{ restaurant.address }}</small>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <span class="text-danger">Нет подходящих ресторанов</span>
+          {% endif %}
+        </td>
+        <td>
           {% if order.comment %}
             <span class="comment-tooltip" title="{{ order.comment }}">
               {{ order.comment|truncatewords:3 }}
@@ -114,33 +136,18 @@
           </ul>
         </td>
         <td>
-          <small>
-            <div>Создан: {{ order.created_at|date:"d.m.Y H:i" }}</div>
-            {% if order.called_at %}
-            <div>Звонок: {{ order.called_at|date:"d.m.Y H:i" }}</div>
-            {% endif %}
-            {% if order.delivered_at %}
-            <div>Доставка: {{ order.delivered_at|date:"d.m.Y H:i" }}</div>
-            {% endif %}
-          </small>
-        </td>
-        <td>
           <a href="{% url 'admin:foodcartapp_order_change' order.id %}?next={% url 'restaurateur:view_orders' %}" 
             class="btn btn-default btn-xs" target="_blank" title="Редактировать заказ">
             <span class="glyphicon glyphicon-edit"></span>
           </a>
         </td>
       </tr>
+      {% endwith %}
     {% empty %}
       <tr>
         <td colspan="11" class="text-center">
           <div class="alert alert-warning">
             <h4>{% if search_query or status_filter %}Заказы не найдены{% else %}Нет активных заказов{% endif %}</h4>
-            <p>
-              {% if search_query %}По запросу "{{ search_query }}" ничего не найдено.{% endif %}
-              {% if status_filter %}С выбранным статусом заказов нет.{% endif %}
-              {% if not search_query and not status_filter %}Все заказы обработаны или новых пока нет.{% endif %}
-            </p>
           </div>
         </td>
       </tr>

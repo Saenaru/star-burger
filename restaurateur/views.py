@@ -109,7 +109,7 @@ def view_orders(request):
     search_query = request.GET.get('q', '')
     
     orders = Order.objects.with_total_price().prefetch_related(
-        'items__product'
+        'items__product', 'assigned_restaurant'
     ).order_by('-created_at')
     
     if status_filter:
@@ -127,8 +127,20 @@ def view_orders(request):
             Q(items__product__name__icontains=search_query)
         ).distinct()
     
+    orders_with_restaurants = []
+    for order in orders:
+        if order.status == 'new' and not order.assigned_restaurant:
+            available_restaurants = order.get_available_restaurants()
+        else:
+            available_restaurants = []
+        
+        orders_with_restaurants.append({
+            'order': order,
+            'available_restaurants': available_restaurants
+        })
+    
     return render(request, template_name='order_items.html', context={
-        'orders': orders,
+        'orders_with_restaurants': orders_with_restaurants,  # Изменено
         'status_filter': status_filter,
         'search_query': search_query,
         'order_status_choices': Order.STATUS_CHOICES

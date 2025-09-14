@@ -118,6 +118,14 @@ class Order(models.Model):
         choices=[('cash', 'Наличными'), ('card', 'Картой'), ('online', 'Онлайн')],
         default='cash'
     )
+    assigned_restaurant = models.ForeignKey(
+        Restaurant,
+        verbose_name='ресторан для приготовления',
+        related_name='assigned_orders',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL
+    )
 
     objects = OrderQuerySet.as_manager()
 
@@ -168,6 +176,22 @@ class Order(models.Model):
         if self.delivered_at and self.created_at:
             return self.delivered_at - self.created_at
         return None
+
+    def get_available_restaurants(self):
+        from django.db.models import Count
+        
+        order_products = self.items.values_list('product', flat=True)
+        
+        available_restaurants = Restaurant.objects.filter(
+            menu_items__product__in=order_products,
+            menu_items__availability=True
+        ).annotate(
+            available_products=Count('menu_items__product', distinct=True)
+        ).filter(
+            available_products=len(order_products)
+        ).distinct()
+        
+        return available_restaurants
 
     def __str__(self):
         return f"Заказ #{self.id} от {self.firstname} {self.lastname}"

@@ -63,12 +63,14 @@ class OrderAdmin(admin.ModelAdmin):
         'phonenumber', 
         'address',
         'status',
+        'assigned_restaurant',
         'created_at',
         'called_at',
         'delivered_at',
         'get_items_count',
         'get_total_display'
     ]
+    list_editable = ['status', 'assigned_restaurant']
     list_filter = ['status', 'created_at', 'payment_method', 'called_at', 'delivered_at']
     search_fields = ['firstname', 'lastname', 'phonenumber', 'address']
     readonly_fields = ['created_at']
@@ -77,7 +79,7 @@ class OrderAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Клиент', {'fields': ('firstname', 'lastname', 'phonenumber', 'address')}),
-        ('Заказ', {'fields': ('status', 'payment_method', 'comment')}),
+        ('Заказ', {'fields': ('status', 'payment_method', 'comment', 'assigned_restaurant')}),
         ('Временные метки', {
             'fields': ('created_at', 'called_at', 'delivered_at'),
             'classes': ('collapse',)
