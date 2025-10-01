@@ -8,8 +8,8 @@ from django.db.models import Q
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import views as auth_views
 
-
 from foodcartapp.models import Product, Restaurant, Order, RestaurantMenuItem
+from foodcartapp.utils import calculate_distance
 
 
 class Login(forms.Form):
@@ -107,7 +107,8 @@ def view_orders(request):
     status_filter = request.GET.get('status', '')
     search_query = request.GET.get('q', '')
     orders = Order.objects.with_total_price().prefetch_related(
-        'items__product', 'assigned_restaurant'
+        'items__product',
+        'assigned_restaurant'
     ).order_by('-created_at')
     if status_filter:
         orders = orders.filter(status=status_filter)
@@ -122,23 +123,39 @@ def view_orders(request):
             Q(comment__icontains=search_query) |
             Q(items__product__name__icontains=search_query)
         ).distinct()
+    all_addresses = set()
+    for order in orders:
+        all_addresses.add(order.address)
+    all_restaurants = list(Restaurant.objects.all())
+    restaurant_addresses = {restaurant.address for restaurant in all_restaurants if restaurant.address}
+    all_addresses.update(restaurant_addresses)
+    from foodcartapp.utils import batch_get_coordinates
+    coordinates_cache = batch_get_coordinates(list(all_addresses))
     orders_with_restaurants = []
     for order in orders:
         available_restaurants_with_distance = []
-        if order.status == 'new' and not order.assigned_restaurant:
+        assigned_restaurant_distance = None
+        order_coords = coordinates_cache.get(order.address)
+        if order.assigned_restaurant and order.assigned_restaurant.address:
+            restaurant_coords = coordinates_cache.get(order.assigned_restaurant.address)
+            assigned_restaurant_distance = calculate_distance(order_coords, restaurant_coords)
+        if order.status == 'new' and not order.assigned_restaurant and order_coords:
             available_restaurants = order.get_available_restaurants()
             for restaurant in available_restaurants:
-                distance = order.calculate_distance(restaurant)
-                available_restaurants_with_distance.append({
-                    'restaurant': restaurant,
-                    'distance': distance
-                })
+                if restaurant.address:
+                    restaurant_coords = coordinates_cache.get(restaurant.address)
+                    distance = calculate_distance(order_coords, restaurant_coords)
+                    available_restaurants_with_distance.append({
+                        'restaurant': restaurant,
+                        'distance': distance
+                    })
             available_restaurants_with_distance.sort(
                 key=lambda x: (x['distance'] is None, x['distance'])
             )
         orders_with_restaurants.append({
             'order': order,
-            'available_restaurants': available_restaurants_with_distance
+            'available_restaurants': available_restaurants_with_distance,
+            'assigned_restaurant_distance': assigned_restaurant_distance
         })
     return render(request, template_name='order_items.html', context={
         'orders_with_restaurants': orders_with_restaurants,

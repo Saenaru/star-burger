@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'foodcartapp.apps.FoodcartappConfig',
     'restaurateur.apps.RestaurateurConfig',
+    'coordinates.apps.CoordinatesConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

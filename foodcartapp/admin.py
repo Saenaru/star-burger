@@ -2,19 +2,22 @@ from django.contrib import admin
 from django.shortcuts import reverse, redirect
 from django.templatetags.static import static
 from django.utils.html import format_html
-from django.db.models import Sum, F, Count
+from django.db.models import Sum, F
 
 from .models import Product, ProductCategory, Restaurant, RestaurantMenuItem, Order, OrderItem
+
 
 class RestaurantMenuItemInline(admin.TabularInline):
     model = RestaurantMenuItem
     extra = 0
+
 
 @admin.register(Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
     search_fields = ['name', 'address', 'contact_phone']
     list_display = ['name', 'address', 'contact_phone']
     inlines = [RestaurantMenuItemInline]
+
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -45,22 +48,25 @@ class ProductAdmin(admin.ModelAdmin):
         return format_html('<a href="{edit_url}"><img src="{src}" style="max-height: 50px;"/></a>', edit_url=edit_url, src=obj.image.url)
     get_image_list_preview.short_description = 'превью'
 
+
 @admin.register(ProductCategory)
 class ProductCategoryAdmin(admin.ModelAdmin):
     pass
+
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
     readonly_fields = ['product', 'quantity', 'price']
 
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = [
-        'id', 
-        'firstname', 
-        'lastname', 
-        'phonenumber', 
+        'id',
+        'firstname',
+        'lastname',
+        'phonenumber',
         'address',
         'status',
         'assigned_restaurant',
@@ -70,13 +76,11 @@ class OrderAdmin(admin.ModelAdmin):
         'get_items_count',
         'get_total_display'
     ]
-    list_editable = ['status', 'assigned_restaurant']
+    list_editable = ['status']
     list_filter = ['status', 'created_at', 'payment_method', 'called_at', 'delivered_at']
     search_fields = ['firstname', 'lastname', 'phonenumber', 'address']
     readonly_fields = ['created_at']
     inlines = [OrderItemInline]
-    list_editable = ['status']
-    
     fieldsets = (
         ('Клиент', {'fields': ('firstname', 'lastname', 'phonenumber', 'address')}),
         ('Заказ', {'fields': ('status', 'payment_method', 'comment', 'assigned_restaurant')}),
@@ -87,9 +91,14 @@ class OrderAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).annotate(
+        return super().get_queryset(request).select_related(
+            'assigned_restaurant'
+        ).prefetch_related(
+            'items',
+            'items__product'
+        ).annotate(
             total_price=Sum(F('items__quantity') * F('items__price'))
-        ).prefetch_related('items')
+        )
 
     def get_items_count(self, obj):
         return obj.items.count()
@@ -100,18 +109,15 @@ class OrderAdmin(admin.ModelAdmin):
             return f"{obj.total_price:.2f} руб."
         return "0.00 руб."
     get_total_display.short_description = 'сумма заказа'
-    
+
     def response_change(self, request, obj):
         next_url = request.GET.get('next')
-        
         if next_url:
             from django.contrib import messages
             messages.success(request, f'Заказ #{obj.id} успешно обновлен.')
-            
             return redirect(next_url)
-        
         return super().response_change(request, obj)
-    
+
     def response_add(self, request, obj, post_url_continue=None):
         """Обработка создания нового заказа (если нужно)"""
         next_url = request.GET.get('next')
@@ -119,11 +125,12 @@ class OrderAdmin(admin.ModelAdmin):
             return redirect(next_url)
         return super().response_add(request, obj, post_url_continue)
 
+
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
     list_display = ['order', 'product', 'quantity', 'price', 'get_subtotal']
     list_filter = ['order__status']
-    
+
     def get_subtotal(self, obj):
         return obj.quantity * obj.price
     get_subtotal.short_description = 'сумма'

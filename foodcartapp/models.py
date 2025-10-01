@@ -3,8 +3,7 @@ from django.core.validators import MinValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
 from django.db.models import Sum, F
 from django.utils import timezone
-
-from .utils import get_coordinates, calculate_distance
+from django.db.models import Count, Prefetch
 
 
 class Restaurant(models.Model):
@@ -20,7 +19,7 @@ class Restaurant(models.Model):
         return self.name
 
     def get_coordinates(self):
-        """Получить координаты ресторана"""
+        from .utils import get_coordinates
         return get_coordinates(self.address)
 
 
@@ -157,9 +156,11 @@ class Order(models.Model):
         ]
 
     def get_coordinates(self):
+        from .utils import get_coordinates
         return get_coordinates(self.address)
 
     def calculate_distance(self, restaurant):
+        from .utils import calculate_distance
         order_coords = self.get_coordinates()
         restaurant_coords = restaurant.get_coordinates()
         return calculate_distance(order_coords, restaurant_coords)
@@ -170,7 +171,7 @@ class Order(models.Model):
             if (self.status == 'processing' and old_order.status != 'processing' and
                 not self.called_at):
                 self.called_at = timezone.now()
-            if (self.status == 'completed' and old_order.status != 'completed' and 
+            if (self.status == 'completed' and old_order.status != 'completed' and
                 not self.delivered_at):
                 self.delivered_at = timezone.now()
             if self.status == 'cancelled' and old_order.status != 'cancelled':
@@ -194,15 +195,19 @@ class Order(models.Model):
         return None
 
     def get_available_restaurants(self):
-        from django.db.models import Count
-        order_products = self.items.values_list('product', flat=True)
+        order_with_items = Order.objects.prefetch_related(
+            Prefetch('items', queryset=OrderItem.objects.select_related('product'))
+        ).get(id=self.id)
+        order_product_ids = [item.product_id for item in order_with_items.items.all()]
+        if not order_product_ids:
+            return Restaurant.objects.none()
         available_restaurants = Restaurant.objects.filter(
-            menu_items__product__in=order_products,
+            menu_items__product_id__in=order_product_ids,
             menu_items__availability=True
         ).annotate(
             available_products=Count('menu_items__product', distinct=True)
         ).filter(
-            available_products=len(order_products)
+            available_products=len(order_product_ids)
         ).distinct()
         return available_restaurants
 
@@ -212,6 +217,7 @@ class Order(models.Model):
     def get_total(self):
         return sum(item.price * item.quantity for item in self.items.all())
     get_total.short_description = 'сумма заказа'
+
     def get_items_count(self):
         return self.items.count()
     get_items_count.short_description = 'количество позиций'
