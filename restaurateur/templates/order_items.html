@@ -101,15 +101,25 @@
         <td>
           {% if order.assigned_restaurant %}
             <strong>{{ order.assigned_restaurant.name }}</strong>
+            {% with distance=order.calculate_distance|default:"" %}
+              {% if distance %}
+                <br><small class="text-muted">{{ distance }} км</small>
+              {% endif %}
+            {% endwith %}
           {% elif order_data.available_restaurants %}
             <div class="restaurant-info">
               <strong>Могут приготовить:</strong>
               <ul class="list-unstyled">
-                {% for restaurant in order_data.available_restaurants %}
+                {% for restaurant_data in order_data.available_restaurants %}
                 <li>
-                  <small>{{ restaurant.name }}</small>
-                  {% if restaurant.address %}
-                    <br><small class="text-muted">{{ restaurant.address }}</small>
+                  <small>{{ restaurant_data.restaurant.name }}</small>
+                  {% if restaurant_data.distance %}
+                    <br><small class="text-muted">{{ restaurant_data.distance }} км</small>
+                  {% else %}
+                    <br><small class="text-warning">расстояние не определено</small>
+                  {% endif %}
+                  {% if restaurant_data.restaurant.address %}
+                    <br><small class="text-muted">{{ restaurant_data.restaurant.address }}</small>
                   {% endif %}
                 </li>
                 {% endfor %}

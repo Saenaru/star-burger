@@ -1,13 +1,11 @@
 from django.http import JsonResponse
 from django.templatetags.static import static
-import json
 from django.db import transaction
 from rest_framework import status
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import serializers
-from .models import Order, OrderItem, Product
+from .models import Product
 from .serializers import OrderSerializer, OrderOutputSerializer
 
 
@@ -70,32 +68,27 @@ class RegisterOrderView(APIView):
             serializer = OrderSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             order = serializer.save()
-            
             self._log_order(order)
-            
             output_serializer = OrderOutputSerializer(order)
-            
             return Response({
-                'status': 'success', 
+                'status': 'success',
                 'message': 'Заказ сохранен',
                 'order_id': order.id,
                 'order': output_serializer.data
             }, status=status.HTTP_201_CREATED)
-            
         except serializers.ValidationError as e:
             return Response({
                 'status': 'error',
                 'message': 'Ошибка валидации данных',
                 'errors': e.detail
             }, status=status.HTTP_400_BAD_REQUEST)
-            
         except Exception as e:
             print(f"Неожиданная ошибка: {type(e).__name__}: {e}")
             return Response({
                 'status': 'error',
                 'message': 'Внутренняя ошибка сервера'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     def _log_order(self, order):
         print("=" * 50)
         print(f"СОХРАНЕН ЗАКАЗ #{order.id}")
@@ -105,9 +98,7 @@ class RegisterOrderView(APIView):
         print(f"Адрес: {order.address}")
         print(f"Статус: {order.get_status_display()}")
         print("Товары:")
-        
         for item in order.items.all():
             print(f"  - {item.product.name}: {item.quantity} x {item.price} = {item.quantity * item.price}")
-        
         print(f"Итого: {order.get_total()}")
         print("=" * 50)

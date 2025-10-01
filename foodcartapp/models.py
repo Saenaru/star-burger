@@ -4,6 +4,9 @@ from phonenumber_field.modelfields import PhoneNumberField
 from django.db.models import Sum, F
 from django.utils import timezone
 
+from .utils import get_coordinates, calculate_distance
+
+
 class Restaurant(models.Model):
     name = models.CharField('название', max_length=50)
     address = models.CharField('адрес', max_length=100, blank=True)
@@ -16,6 +19,11 @@ class Restaurant(models.Model):
     def __str__(self):
         return self.name
 
+    def get_coordinates(self):
+        """Получить координаты ресторана"""
+        return get_coordinates(self.address)
+
+
 class ProductQuerySet(models.QuerySet):
     def available(self):
         products = (
@@ -24,6 +32,7 @@ class ProductQuerySet(models.QuerySet):
             .values_list('product')
         )
         return self.filter(pk__in=products)
+
 
 class ProductCategory(models.Model):
     name = models.CharField('название', max_length=50)
@@ -34,6 +43,7 @@ class ProductCategory(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class Product(models.Model):
     name = models.CharField('название', max_length=50)
@@ -64,6 +74,7 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+
 class RestaurantMenuItem(models.Model):
     restaurant = models.ForeignKey(
         Restaurant,
@@ -87,11 +98,13 @@ class RestaurantMenuItem(models.Model):
     def __str__(self):
         return f"{self.restaurant.name} - {self.product.name}"
 
+
 class OrderQuerySet(models.QuerySet):
     def with_total_price(self):
         return self.annotate(
             total_price=Sum(F('items__quantity') * F('items__price'))
         )
+
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -143,35 +156,38 @@ class Order(models.Model):
             models.Index(fields=['delivered_at']),
         ]
 
+    def get_coordinates(self):
+        return get_coordinates(self.address)
+
+    def calculate_distance(self, restaurant):
+        order_coords = self.get_coordinates()
+        restaurant_coords = restaurant.get_coordinates()
+        return calculate_distance(order_coords, restaurant_coords)
+
     def save(self, *args, **kwargs):
         if self.pk:
             old_order = Order.objects.get(pk=self.pk)
-            
-            if (self.status == 'processing' and old_order.status != 'processing' and 
+            if (self.status == 'processing' and old_order.status != 'processing' and
                 not self.called_at):
                 self.called_at = timezone.now()
-            
             if (self.status == 'completed' and old_order.status != 'completed' and 
                 not self.delivered_at):
                 self.delivered_at = timezone.now()
-                
             if self.status == 'cancelled' and old_order.status != 'cancelled':
                 self.called_at = None
                 self.delivered_at = None
-        
         super().save(*args, **kwargs)
-
 
     def get_processing_time(self):
         if self.called_at and self.created_at:
             return self.called_at - self.created_at
         return None
-    
+
     def get_delivery_time(self):
         if self.delivered_at and self.called_at:
             return self.delivered_at - self.called_at
         return None
-    
+
     def get_total_time(self):
         if self.delivered_at and self.created_at:
             return self.delivered_at - self.created_at
@@ -179,9 +195,7 @@ class Order(models.Model):
 
     def get_available_restaurants(self):
         from django.db.models import Count
-        
         order_products = self.items.values_list('product', flat=True)
-        
         available_restaurants = Restaurant.objects.filter(
             menu_items__product__in=order_products,
             menu_items__availability=True
@@ -190,7 +204,6 @@ class Order(models.Model):
         ).filter(
             available_products=len(order_products)
         ).distinct()
-        
         return available_restaurants
 
     def __str__(self):
@@ -198,13 +211,11 @@ class Order(models.Model):
 
     def get_total(self):
         return sum(item.price * item.quantity for item in self.items.all())
-    
     get_total.short_description = 'сумма заказа'
-    
     def get_items_count(self):
         return self.items.count()
-    
     get_items_count.short_description = 'количество позиций'
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(

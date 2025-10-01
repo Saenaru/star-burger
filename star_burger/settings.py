@@ -120,6 +120,14 @@ INTERNAL_IPS = [
     'localhost',
 ]
 
+YANDEX_GEOCODER_API_KEY = env('YANDEX_GEOCODER_API_KEY', '')
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "assets"),
