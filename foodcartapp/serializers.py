@@ -26,7 +26,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    products = OrderItemSerializer(many=True, write_only=True)
+    products = OrderItemSerializer(many=True, write_only=True, allow_empty=False)
     phonenumber = PhoneNumberField(
         error_messages={
             'blank': 'Телефон не может быть пустым',

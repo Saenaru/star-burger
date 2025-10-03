@@ -4,6 +4,16 @@ from phonenumber_field.modelfields import PhoneNumberField
 from django.db.models import Sum, F
 from django.utils import timezone
 from django.db.models import Count, Prefetch
+from django.utils.translation import gettext_lazy as _
+from coordinates.utils import get_coordinates, calculate_distance
+
+
+def validate_positive(value):
+    if value <= 0:
+        raise ValidationError(
+            _('Значение должно быть строго больше 0'),
+            params={'value': value},
+        )
 
 
 class Restaurant(models.Model):
@@ -19,7 +29,6 @@ class Restaurant(models.Model):
         return self.name
 
     def get_coordinates(self):
-        from .utils import get_coordinates
         return get_coordinates(self.address)
 
 
@@ -58,7 +67,7 @@ class Product(models.Model):
         'цена',
         max_digits=8,
         decimal_places=2,
-        validators=[MinValueValidator(0)]
+        validators=[validate_positive]
     )
     image = models.ImageField('картинка')
     special_status = models.BooleanField('спец.предложение', default=False, db_index=True)
@@ -162,29 +171,12 @@ class Order(models.Model):
         ]
 
     def get_coordinates(self):
-        from .utils import get_coordinates
         return get_coordinates(self.address)
 
     def calculate_distance(self, restaurant):
-        from .utils import calculate_distance
         order_coords = self.get_coordinates()
         restaurant_coords = restaurant.get_coordinates()
         return calculate_distance(order_coords, restaurant_coords)
-
-    def get_processing_time(self):
-        if self.called_at and self.created_at:
-            return self.called_at - self.created_at
-        return None
-
-    def get_delivery_time(self):
-        if self.delivered_at and self.called_at:
-            return self.delivered_at - self.called_at
-        return None
-
-    def get_total_time(self):
-        if self.delivered_at and self.created_at:
-            return self.delivered_at - self.created_at
-        return None
 
     def get_available_restaurants(self):
         order_with_items = Order.objects.prefetch_related(
@@ -214,12 +206,6 @@ class Order(models.Model):
         )['total'] or 0
     get_total.short_description = 'сумма заказа'
 
-    def get_items_count(self):
-        if hasattr(self, 'items_count'):
-            return self.items_count
-        return self.items.count()
-    get_items_count.short_description = 'количество позиций'
-
 
 class OrderItem(models.Model):
     order = models.ForeignKey(
@@ -242,7 +228,7 @@ class OrderItem(models.Model):
         'цена',
         max_digits=8,
         decimal_places=2,
-        validators=[MinValueValidator(0)]
+        validators=[validate_positive]
     )
 
     class Meta:

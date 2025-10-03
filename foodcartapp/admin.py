@@ -5,6 +5,8 @@ from django.utils.html import format_html
 from django.db.models import Sum, F, Count
 from django.utils import timezone
 from django.contrib import messages
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.conf import settings
 
 
 from .models import Product, ProductCategory, Restaurant, RestaurantMenuItem, Order, OrderItem
@@ -138,16 +140,20 @@ class OrderAdmin(admin.ModelAdmin):
     get_total_display.short_description = 'сумма заказа'
     get_total_display.admin_order_field = 'total_price'
 
+    def _is_safe_redirect(self, url, request):
+        allowed_hosts = {request.get_host()} | set(getattr(settings, 'ALLOWED_HOSTS', []))
+        return url_has_allowed_host_and_scheme(url, allowed_hosts=allowed_hosts)
+
     def response_change(self, request, obj):
         next_url = request.GET.get('next')
-        if next_url:
+        if next_url and self._is_safe_redirect(next_url, request):
             messages.success(request, f'Заказ #{obj.id} успешно обновлен.')
             return redirect(next_url)
         return super().response_change(request, obj)
 
     def response_add(self, request, obj, post_url_continue=None):
         next_url = request.GET.get('next')
-        if next_url:
+        if next_url and self._is_safe_redirect(next_url, request):
             return redirect(next_url)
         return super().response_add(request, obj, post_url_continue)
 

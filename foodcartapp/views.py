@@ -68,14 +68,6 @@ class RegisterOrderView(APIView):
             serializer = OrderSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             order = serializer.save()
-            self._log_order(order)
-            output_serializer = OrderOutputSerializer(order)
-            return Response({
-                'status': 'success',
-                'message': 'Заказ сохранен',
-                'order_id': order.id,
-                'order': output_serializer.data
-            }, status=status.HTTP_201_CREATED)
         except serializers.ValidationError as e:
             return Response({
                 'status': 'error',
@@ -88,6 +80,15 @@ class RegisterOrderView(APIView):
                 'status': 'error',
                 'message': 'Внутренняя ошибка сервера'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self._log_order(order)
+
+        output_serializer = OrderOutputSerializer(order)
+        return Response({
+            'status': 'success',
+            'message': 'Заказ сохранен',
+            'order_id': order.id,
+            'order': output_serializer.data
+        }, status=status.HTTP_201_CREATED)
 
     def _log_order(self, order):
         print("=" * 50)
