@@ -9,8 +9,8 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth import views as auth_views
 
 from foodcartapp.models import Product, Restaurant, Order, RestaurantMenuItem
-from coordinates.utils import calculate_distance, batch_get_coordinates
-
+from coordinates.utils import calculate_distance
+from coordinates.models import Coordinates
 
 class Login(forms.Form):
     username = forms.CharField(
@@ -129,7 +129,7 @@ def view_orders(request):
     all_restaurants = list(Restaurant.objects.all())
     restaurant_addresses = {restaurant.address for restaurant in all_restaurants if restaurant.address}
     all_addresses.update(restaurant_addresses)
-    coordinates_cache = batch_get_coordinates(list(all_addresses))
+    coordinates_cache = Coordinates.objects.batch_get_coordinates(list(all_addresses))
     orders_with_restaurants = []
     for order in orders:
         available_restaurants_with_distance = []

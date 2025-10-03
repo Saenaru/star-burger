@@ -126,6 +126,7 @@ class OrderAdmin(admin.ModelAdmin):
             items_count=Count('items')
         )
 
+    
     def get_items_count(self, obj):
         if hasattr(obj, 'items_count') and obj.items_count is not None:
             return obj.items_count

@@ -1,8 +1,7 @@
 from django.db import models
 from django.utils import timezone
-import requests
-from django.conf import settings
 import logging
+from .services import YandexGeocoderService
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ class CoordinatesManager(models.Manager):
             return (coords_obj.lat, coords_obj.lon)
         except self.model.DoesNotExist:
             pass
-        coordinates = self._fetch_from_yandex(address)
+        coordinates = YandexGeocoderService.geocode_address(address)
         if coordinates:
             self.create(
                 address=address,
@@ -26,32 +25,6 @@ class CoordinatesManager(models.Manager):
             )
             return coordinates
         return None
-
-    def _fetch_from_yandex(self, address):
-        if not settings.YANDEX_GEOCODER_API_KEY:
-            logger.warning("Yandex Geocoder API key not set")
-            return None
-        try:
-            base_url = "https://geocode-maps.yandex.ru/1.x"
-            params = {
-                'geocode': address,
-                'apikey': settings.YANDEX_GEOCODER_API_KEY,
-                'format': 'json',
-                'results': 1
-            }
-            response = requests.get(base_url, params=params, timeout=5)
-            response.raise_for_status()
-            data = response.json()
-            features = data['response']['GeoObjectCollection']['featureMember']
-            if not features:
-                logger.warning(f"No coordinates found for address: {address}")
-                return None
-            pos = features[0]['GeoObject']['Point']['pos']
-            lon, lat = map(float, pos.split())
-            return (lat, lon)
-        except Exception as e:
-            logger.error(f"Geocoding error for address '{address}': {e}")
-            return None
 
     def batch_get_coordinates(self, addresses):
         if not addresses:
@@ -75,7 +48,7 @@ class CoordinatesManager(models.Manager):
         if addresses_to_fetch:
             new_coords_objects = []
             for address in addresses_to_fetch:
-                coords = self._fetch_from_yandex(address)
+                coords = YandexGeocoderService.geocode_address(address)
                 if coords:
                     coordinates[address] = coords
                     new_coords_objects.append(self.model(

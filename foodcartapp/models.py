@@ -5,7 +5,8 @@ from django.db.models import Sum, F
 from django.utils import timezone
 from django.db.models import Count, Prefetch
 from django.utils.translation import gettext_lazy as _
-from coordinates.utils import get_coordinates, calculate_distance
+from coordinates.utils import calculate_distance
+from .services import calculate_order_restaurant_distance
 
 
 def validate_positive(value):
@@ -27,9 +28,6 @@ class Restaurant(models.Model):
 
     def __str__(self):
         return self.name
-
-    def get_coordinates(self):
-        return get_coordinates(self.address)
 
 
 class ProductQuerySet(models.QuerySet):
@@ -169,14 +167,6 @@ class Order(models.Model):
             models.Index(fields=['delivered_at']),
             models.Index(fields=['payment_method']),
         ]
-
-    def get_coordinates(self):
-        return get_coordinates(self.address)
-
-    def calculate_distance(self, restaurant):
-        order_coords = self.get_coordinates()
-        restaurant_coords = restaurant.get_coordinates()
-        return calculate_distance(order_coords, restaurant_coords)
 
     def get_available_restaurants(self):
         order_with_items = Order.objects.prefetch_related(
