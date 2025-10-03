@@ -104,6 +104,11 @@ class OrderQuerySet(models.QuerySet):
             total_price=Sum(F('items__quantity') * F('items__price'))
         )
 
+    def with_items_count(self):
+        return self.annotate(
+            items_count=Count('items')
+        )
+
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -128,7 +133,7 @@ class Order(models.Model):
         'способ оплаты',
         max_length=20,
         choices=[('cash', 'Наличными'), ('card', 'Картой'), ('online', 'Онлайн')],
-        default='cash'
+        db_index=True
     )
     assigned_restaurant = models.ForeignKey(
         Restaurant,
@@ -153,6 +158,7 @@ class Order(models.Model):
             models.Index(fields=['created_at']),
             models.Index(fields=['called_at']),
             models.Index(fields=['delivered_at']),
+            models.Index(fields=['payment_method']),
         ]
 
     def get_coordinates(self):
@@ -164,20 +170,6 @@ class Order(models.Model):
         order_coords = self.get_coordinates()
         restaurant_coords = restaurant.get_coordinates()
         return calculate_distance(order_coords, restaurant_coords)
-
-    def save(self, *args, **kwargs):
-        if self.pk:
-            old_order = Order.objects.get(pk=self.pk)
-            if (self.status == 'processing' and old_order.status != 'processing' and
-                not self.called_at):
-                self.called_at = timezone.now()
-            if (self.status == 'completed' and old_order.status != 'completed' and
-                not self.delivered_at):
-                self.delivered_at = timezone.now()
-            if self.status == 'cancelled' and old_order.status != 'cancelled':
-                self.called_at = None
-                self.delivered_at = None
-        super().save(*args, **kwargs)
 
     def get_processing_time(self):
         if self.called_at and self.created_at:
@@ -215,10 +207,16 @@ class Order(models.Model):
         return f"Заказ #{self.id} от {self.firstname} {self.lastname}"
 
     def get_total(self):
-        return sum(item.price * item.quantity for item in self.items.all())
+        if hasattr(self, 'total_price'):
+            return self.total_price
+        return self.items.aggregate(
+            total=Sum(F('quantity') * F('price'))
+        )['total'] or 0
     get_total.short_description = 'сумма заказа'
 
     def get_items_count(self):
+        if hasattr(self, 'items_count'):
+            return self.items_count
         return self.items.count()
     get_items_count.short_description = 'количество позиций'
 
