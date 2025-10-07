@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 import logging
-from .services import YandexGeocoderService
+from .services import geocode_address
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class CoordinatesManager(models.Manager):
             return (coords_obj.lat, coords_obj.lon)
         except self.model.DoesNotExist:
             pass
-        coordinates = YandexGeocoderService.geocode_address(address)
+        coordinates = geocode_address(address)
         if coordinates:
             self.create(
                 address=address,
@@ -48,7 +48,7 @@ class CoordinatesManager(models.Manager):
         if addresses_to_fetch:
             new_coords_objects = []
             for address in addresses_to_fetch:
-                coords = YandexGeocoderService.geocode_address(address)
+                coords = geocode_address(address)
                 if coords:
                     coordinates[address] = coords
                     new_coords_objects.append(self.model(

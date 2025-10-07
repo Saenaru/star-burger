@@ -1,20 +1,10 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Count, Prefetch
 from django.utils import timezone
-from django.db.models import Count, Prefetch
 from django.utils.translation import gettext_lazy as _
-from coordinates.utils import calculate_distance
-from .services import calculate_order_restaurant_distance
-
-
-def validate_positive(value):
-    if value <= 0:
-        raise ValidationError(
-            _('Значение должно быть строго больше 0'),
-            params={'value': value},
-        )
+from collections import defaultdict
 
 
 class Restaurant(models.Model):
@@ -65,7 +55,7 @@ class Product(models.Model):
         'цена',
         max_digits=8,
         decimal_places=2,
-        validators=[validate_positive]
+        validators=[MinValueValidator(1)]
     )
     image = models.ImageField('картинка')
     special_status = models.BooleanField('спец.предложение', default=False, db_index=True)
@@ -127,11 +117,23 @@ class Order(models.Model):
         ('cancelled', 'Отменен'),
     ]
 
+    PAYMENT_METHOD_CHOICES = [
+        ('cash', 'Наличными'),
+        ('card', 'Картой'),
+        ('online', 'Онлайн'),
+    ]
+
     firstname = models.CharField('имя', max_length=50)
     lastname = models.CharField('фамилия', max_length=50, blank=True)
     phonenumber = PhoneNumberField('телефон', db_index=True)
     address = models.CharField('адрес', max_length=200)
-    status = models.CharField('статус', max_length=20, choices=STATUS_CHOICES, default='new', db_index=True)
+    status = models.CharField(
+        'статус', 
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        default='new', 
+        db_index=True
+    )
     comment = models.TextField('комментарий', blank=True)
     created_at = models.DateTimeField('создан', auto_now_add=True, db_index=True)
     called_at = models.DateTimeField('звонок', blank=True, null=True, db_index=True, editable=True)
@@ -139,7 +141,7 @@ class Order(models.Model):
     payment_method = models.CharField(
         'способ оплаты',
         max_length=20,
-        choices=[('cash', 'Наличными'), ('card', 'Картой'), ('online', 'Онлайн')],
+        choices=PAYMENT_METHOD_CHOICES,
         db_index=True
     )
     assigned_restaurant = models.ForeignKey(
@@ -169,31 +171,35 @@ class Order(models.Model):
         ]
 
     def get_available_restaurants(self):
-        order_with_items = Order.objects.prefetch_related(
-            Prefetch('items', queryset=OrderItem.objects.select_related('product'))
-        ).get(id=self.id)
-        order_product_ids = [item.product_id for item in order_with_items.items.all()]
+        order_items = self.items.select_related('product').all()
+        order_product_ids = [item.product_id for item in order_items]
         if not order_product_ids:
             return Restaurant.objects.none()
-        available_restaurants = Restaurant.objects.filter(
-            menu_items__product_id__in=order_product_ids,
-            menu_items__availability=True
-        ).annotate(
-            available_products=Count('menu_items__product', distinct=True)
-        ).filter(
-            available_products=len(order_product_ids)
-        ).distinct()
+        restaurant_menu_items = RestaurantMenuItem.objects.filter(
+            availability=True,
+            product_id__in=order_product_ids
+        ).select_related('restaurant', 'product')
+        restaurant_products = defaultdict(set)
+        for menu_item in restaurant_menu_items:
+            restaurant_products[menu_item.restaurant].add(menu_item.product_id)
+        available_restaurants = []
+        order_product_set = set(order_product_ids)
+        for restaurant, products in restaurant_products.items():
+            if order_product_set.issubset(products):
+                available_restaurants.append(restaurant)
         return available_restaurants
 
     def __str__(self):
         return f"Заказ #{self.id} от {self.firstname} {self.lastname}"
 
     def get_total(self):
+        """Возвращает общую сумму заказа"""
         if hasattr(self, 'total_price'):
             return self.total_price
         return self.items.aggregate(
             total=Sum(F('quantity') * F('price'))
         )['total'] or 0
+    
     get_total.short_description = 'сумма заказа'
 
 
@@ -205,7 +211,7 @@ class OrderItem(models.Model):
         verbose_name='заказ'
     )
     product = models.ForeignKey(
-        'Product',
+        Product,
         on_delete=models.CASCADE,
         related_name='order_items',
         verbose_name='товар'
@@ -218,7 +224,7 @@ class OrderItem(models.Model):
         'цена',
         max_digits=8,
         decimal_places=2,
-        validators=[validate_positive]
+        validators=[MinValueValidator(1)]
     )
 
     class Meta:
@@ -228,3 +234,9 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} x{self.quantity} в заказе #{self.order.id}"
+
+    def get_cost(self):
+        """Возвращает стоимость позиции (количество * цена)"""
+        return self.quantity * self.price
+    
+    get_cost.short_description = 'стоимость позиции'
