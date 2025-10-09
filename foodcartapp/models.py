@@ -106,6 +106,36 @@ class OrderQuerySet(models.QuerySet):
             items_count=Count('items')
         )
 
+    def with_available_restaurants(self):
+        restaurant_menu_items = RestaurantMenuItem.objects.filter(
+            availability=True
+        ).select_related('restaurant', 'product')
+        restaurant_products = defaultdict(set)
+        for menu_item in restaurant_menu_items:
+            restaurant_products[menu_item.restaurant].add(menu_item.product_id)
+        orders_with_items = self.prefetch_related(
+            Prefetch('items', queryset=OrderItem.objects.select_related('product'))
+        )
+        orders_restaurants = {}
+        
+        for order in orders_with_items:
+            order_product_ids = [item.product_id for item in order.items.all()]
+            order_product_set = set(order_product_ids)
+            
+            if not order_product_ids:
+                orders_restaurants[order.id] = []
+                continue
+            available_restaurants = []
+            for restaurant, products in restaurant_products.items():
+                if order_product_set.issubset(products):
+                    available_restaurants.append(restaurant)
+            
+            orders_restaurants[order.id] = available_restaurants
+        for order in self:
+            order.available_restaurants = orders_restaurants.get(order.id, [])
+        
+        return self
+
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -155,20 +185,15 @@ class Order(models.Model):
 
     objects = OrderQuerySet.as_manager()
 
-    class Meta:
-        verbose_name = 'заказ'
-        verbose_name_plural = 'заказы'
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['status', 'created_at']),
-            models.Index(fields=['phonenumber']),
-            models.Index(fields=['lastname', 'firstname']),
-            models.Index(fields=['address']),
-            models.Index(fields=['created_at']),
-            models.Index(fields=['called_at']),
-            models.Index(fields=['delivered_at']),
-            models.Index(fields=['payment_method']),
-        ]
+    @property
+    def available_restaurants(self):
+        if hasattr(self, '_available_restaurants'):
+            return self._available_restaurants
+        return self.get_available_restaurants()
+
+    @available_restaurants.setter
+    def available_restaurants(self, value):
+        self._available_restaurants = value
 
     def get_available_restaurants(self):
         order_items = self.items.select_related('product').all()
@@ -188,6 +213,21 @@ class Order(models.Model):
             if order_product_set.issubset(products):
                 available_restaurants.append(restaurant)
         return available_restaurants
+
+    class Meta:
+        verbose_name = 'заказ'
+        verbose_name_plural = 'заказы'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['phonenumber']),
+            models.Index(fields=['lastname', 'firstname']),
+            models.Index(fields=['address']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['called_at']),
+            models.Index(fields=['delivered_at']),
+            models.Index(fields=['payment_method']),
+        ]
 
     def __str__(self):
         return f"Заказ #{self.id} от {self.firstname} {self.lastname}"
