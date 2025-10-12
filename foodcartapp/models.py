@@ -113,15 +113,10 @@ class OrderQuerySet(models.QuerySet):
         restaurant_products = defaultdict(set)
         for menu_item in restaurant_menu_items:
             restaurant_products[menu_item.restaurant].add(menu_item.product_id)
-        orders_with_items = self.prefetch_related(
-            Prefetch('items', queryset=OrderItem.objects.select_related('product'))
-        )
         orders_restaurants = {}
-        
-        for order in orders_with_items:
+        for order in self:
             order_product_ids = [item.product_id for item in order.items.all()]
             order_product_set = set(order_product_ids)
-            
             if not order_product_ids:
                 orders_restaurants[order.id] = []
                 continue
@@ -129,13 +124,12 @@ class OrderQuerySet(models.QuerySet):
             for restaurant, products in restaurant_products.items():
                 if order_product_set.issubset(products):
                     available_restaurants.append(restaurant)
-            
+
             orders_restaurants[order.id] = available_restaurants
+
         for order in self:
             order.available_restaurants = orders_restaurants.get(order.id, [])
-        
         return self
-
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -185,35 +179,6 @@ class Order(models.Model):
 
     objects = OrderQuerySet.as_manager()
 
-    @property
-    def available_restaurants(self):
-        if hasattr(self, '_available_restaurants'):
-            return self._available_restaurants
-        return self.get_available_restaurants()
-
-    @available_restaurants.setter
-    def available_restaurants(self, value):
-        self._available_restaurants = value
-
-    def get_available_restaurants(self):
-        order_items = self.items.select_related('product').all()
-        order_product_ids = [item.product_id for item in order_items]
-        if not order_product_ids:
-            return Restaurant.objects.none()
-        restaurant_menu_items = RestaurantMenuItem.objects.filter(
-            availability=True,
-            product_id__in=order_product_ids
-        ).select_related('restaurant', 'product')
-        restaurant_products = defaultdict(set)
-        for menu_item in restaurant_menu_items:
-            restaurant_products[menu_item.restaurant].add(menu_item.product_id)
-        available_restaurants = []
-        order_product_set = set(order_product_ids)
-        for restaurant, products in restaurant_products.items():
-            if order_product_set.issubset(products):
-                available_restaurants.append(restaurant)
-        return available_restaurants
-
     class Meta:
         verbose_name = 'заказ'
         verbose_name_plural = 'заказы'
@@ -233,13 +198,11 @@ class Order(models.Model):
         return f"Заказ #{self.id} от {self.firstname} {self.lastname}"
 
     def get_total(self):
-        """Возвращает общую сумму заказа"""
         if hasattr(self, 'total_price'):
             return self.total_price
         return self.items.aggregate(
             total=Sum(F('quantity') * F('price'))
         )['total'] or 0
-    
     get_total.short_description = 'сумма заказа'
 
 
@@ -276,7 +239,6 @@ class OrderItem(models.Model):
         return f"{self.product.name} x{self.quantity} в заказе #{self.order.id}"
 
     def get_cost(self):
-        """Возвращает стоимость позиции (количество * цена)"""
         return self.quantity * self.price
     
     get_cost.short_description = 'стоимость позиции'

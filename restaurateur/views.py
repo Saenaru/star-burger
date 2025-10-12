@@ -106,14 +106,17 @@ def view_restaurants(request):
 def view_orders(request):
     status_filter = request.GET.get('status', '')
     search_query = request.GET.get('q', '')
-    orders = Order.objects.with_total_price().prefetch_related(
-        'items__product',
+    orders = Order.objects.with_total_price().select_related(
         'assigned_restaurant'
+    ).prefetch_related(
+        'items__product'
     ).order_by('-created_at')
+    
     if status_filter:
         orders = orders.filter(status=status_filter)
     else:
         orders = orders.filter(status__in=['new', 'processing', 'cooking', 'delivering'])
+        
     if search_query:
         orders = orders.filter(
             Q(firstname__icontains=search_query) |
@@ -123,14 +126,17 @@ def view_orders(request):
             Q(comment__icontains=search_query) |
             Q(items__product__name__icontains=search_query)
         ).distinct()
+    orders = orders.with_available_restaurants()
     all_addresses = set()
     for order in orders:
         all_addresses.add(order.address)
+        
     all_restaurants = list(Restaurant.objects.all())
     restaurant_addresses = {restaurant.address for restaurant in all_restaurants if restaurant.address}
     all_addresses.update(restaurant_addresses)
     coordinates_cache = Coordinates.objects.batch_get_coordinates(list(all_addresses))
     orders_with_restaurants = []
+
     for order in orders:
         available_restaurants_with_distance = []
         assigned_restaurant_distance = None
@@ -139,8 +145,7 @@ def view_orders(request):
             restaurant_coords = coordinates_cache.get(order.assigned_restaurant.address)
             assigned_restaurant_distance = calculate_distance(order_coords, restaurant_coords)
         if order.status == 'new' and not order.assigned_restaurant and order_coords:
-            available_restaurants = order.get_available_restaurants()
-            for restaurant in available_restaurants:
+            for restaurant in order.available_restaurants:
                 if restaurant.address:
                     restaurant_coords = coordinates_cache.get(restaurant.address)
                     distance = calculate_distance(order_coords, restaurant_coords)
