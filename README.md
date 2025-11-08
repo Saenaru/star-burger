@@ -54,9 +54,23 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
+Установите PostgreSQL и настройте базу данных:
+
+Создайте базу данных для проекта:
+```sh
+createdb star_burger
+```
+
+Установите psycopg2 для работы с PostgreSQL:
+```sh
+pip install psycopg2-binary
+```
+
 Определите переменную окружения `SECRET_KEY`. Создать файл `.env` в каталоге `star_burger/` и положите туда такой код:
 ```sh
 SECRET_KEY=django-insecure-0if40nf4nf93n4
+DEBUG=True
+DATABASE_URL=postgres://user:password@localhost:5432/star_burger
 ```
 
 Создайте файл базы данных SQLite и отмигрируйте её следующей командой:
