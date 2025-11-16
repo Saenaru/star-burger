@@ -186,7 +186,7 @@ sudo /opt/scripts/deploy_star_burger.sh
 
 ## Пример проекта
 
-    [burgerstudies.ru](https://www.burgerstudies.ru/)
+    https://www.burgerstudies.ru
 
 
 Код написан в учебных целях — это урок в курсе по Python и веб-разработке на сайте [Devman](https://dvmn.org). За основу был взят код проекта [FoodCart](https://github.com/Saibharath79/FoodCart).
