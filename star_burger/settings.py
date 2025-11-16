@@ -2,6 +2,8 @@ import os
 
 import dj_database_url
 
+
+import rollbar
 from environs import Env
 
 
@@ -11,7 +13,7 @@ env.read_env()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-
+ROLLBAR_ACCESS_TOKEN = os.getenv('ROLLBAR_ACCESS_TOKEN')
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env.bool('DEBUG', True)
 
@@ -30,6 +32,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'debug_toolbar',
     'phonenumber_field',
+    'rollbar',
 ]
 
 MIDDLEWARE = [
@@ -41,6 +44,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'rollbar.contrib.django.middleware.RollbarNotifierMiddleware',
 ]
 
 ROOT_URLCONF = 'star_burger.urls'
@@ -77,6 +81,44 @@ TEMPLATES = [
         },
     },
 ]
+
+ROLLBAR = {
+    'access_token': ROLLBAR_ACCESS_TOKEN,
+    'environment': os.getenv('ENVIRONMENT', 'production'),
+    'root': '/opt/projects/star-burger',
+    'branch': 'master',
+    'patch_debugview': False,
+    'capture_ip': True,
+    'code_version': '1.0',
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'rollbar': {
+            'level': 'ERROR',
+            'class': 'rollbar.logger.RollbarHandler',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'rollbar'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'your_app_name': {
+            'handlers': ['console', 'rollbar'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+
 
 WSGI_APPLICATION = 'star_burger.wsgi.application'
 
@@ -123,6 +165,8 @@ INTERNAL_IPS = [
 
 YANDEX_GEOCODER_API_KEY = env('YANDEX_GEOCODER_API_KEY', '')
 
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
@@ -134,3 +178,5 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "assets"),
     os.path.join(BASE_DIR, "bundles"),
 ]
+
+
