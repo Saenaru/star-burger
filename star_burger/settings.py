@@ -2,37 +2,22 @@ import os
 
 import dj_database_url
 
+
+import rollbar
 from environs import Env
 
 
 env = Env()
 env.read_env()
 
-
-ROLLBAR_ACCESS_TOKEN = os.getenv('ROLLBAR_ACCESS_TOKEN')
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-
+ROLLBAR_ACCESS_TOKEN = os.getenv('ROLLBAR_ACCESS_TOKEN')
 SECRET_KEY = env('SECRET_KEY')
-DEBUG = env.bool('DEBUG', False)
+DEBUG = env.bool('DEBUG', True)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', ['127.0.0.1', 'localhost'])
-
-if not DEBUG:
-    SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', True)
-    SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', True)
-    CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', True)
-    
-    SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', 31536000)
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', True)
-    SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', True)
-    
-    SECURE_BROWSER_XSS_FILTER = env.bool('SECURE_BROWSER_XSS_FILTER', True)
-    SECURE_CONTENT_TYPE_NOSNIFF = env.bool('SECURE_CONTENT_TYPE_NOSNIFF', True)
-    
-    USE_X_FORWARDED_HOST = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 INSTALLED_APPS = [
     'rest_framework',
@@ -64,32 +49,20 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'star_burger.urls'
 
-if DEBUG:
-    DEBUG_TOOLBAR_PANELS = [
-        'debug_toolbar.panels.versions.VersionsPanel',
-        'debug_toolbar.panels.timer.TimerPanel',
-        'debug_toolbar.panels.settings.SettingsPanel',
-        'debug_toolbar.panels.headers.HeadersPanel',
-        'debug_toolbar.panels.request.RequestPanel',
-        'debug_toolbar.panels.sql.SQLPanel',
-        'debug_toolbar.panels.staticfiles.StaticFilesPanel',
-        'debug_toolbar.panels.templates.TemplatesPanel',
-        'debug_toolbar.panels.cache.CachePanel',
-        'debug_toolbar.panels.signals.SignalsPanel',
-        'debug_toolbar.panels.logging.LoggingPanel',
-        'debug_toolbar.panels.redirects.RedirectsPanel',
-    ]
-else:
-    MIDDLEWARE = [mw for mw in MIDDLEWARE if mw != 'debug_toolbar.middleware.DebugToolbarMiddleware']
-
-ROLLBAR = {
-        'access_token': ROLLBAR_ACCESS_TOKEN,
-        'environment': os.getenv('ENVIRONMENT', 'production'),
-        'root': '/opt/projects/star-burger',
-        'branch': 'master',
-        'patch_debugview': False,
-        'capture_ip': True,
-    }
+DEBUG_TOOLBAR_PANELS = [
+    'debug_toolbar.panels.versions.VersionsPanel',
+    'debug_toolbar.panels.timer.TimerPanel',
+    'debug_toolbar.panels.settings.SettingsPanel',
+    'debug_toolbar.panels.headers.HeadersPanel',
+    'debug_toolbar.panels.request.RequestPanel',
+    'debug_toolbar.panels.sql.SQLPanel',
+    'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+    'debug_toolbar.panels.templates.TemplatesPanel',
+    'debug_toolbar.panels.cache.CachePanel',
+    'debug_toolbar.panels.signals.SignalsPanel',
+    'debug_toolbar.panels.logging.LoggingPanel',
+    'debug_toolbar.panels.redirects.RedirectsPanel',
+]
 
 TEMPLATES = [
     {
@@ -108,6 +81,44 @@ TEMPLATES = [
         },
     },
 ]
+
+ROLLBAR = {
+    'access_token': ROLLBAR_ACCESS_TOKEN,
+    'environment': os.getenv('ENVIRONMENT', 'production'),
+    'root': '/opt/projects/star-burger',
+    'branch': 'master',
+    'patch_debugview': False,
+    'capture_ip': True,
+    'code_version': '1.0',
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'rollbar': {
+            'level': 'ERROR',
+            'class': 'rollbar.logger.RollbarHandler',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'rollbar'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'your_app_name': {
+            'handlers': ['console', 'rollbar'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+
 
 WSGI_APPLICATION = 'star_burger.wsgi.application'
 
@@ -154,6 +165,8 @@ INTERNAL_IPS = [
 
 YANDEX_GEOCODER_API_KEY = env('YANDEX_GEOCODER_API_KEY', '')
 
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
@@ -165,3 +178,5 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "assets"),
     os.path.join(BASE_DIR, "bundles"),
 ]
+
+
