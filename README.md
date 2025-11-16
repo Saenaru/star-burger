@@ -177,6 +177,16 @@ Parcel будет следить за файлами в каталоге `bundle
 - `ROLLBAR_ACCESS_TOKEN=ваш_токен_здесь`
 - `ENVIRONMENT=production`
 
+## Быстрое обновление кода на сервере
+Для обновления продакшн-сервера выполните:
+
+```bash
+sudo /opt/scripts/deploy_star_burger.sh
+```
+
+## Пример проекта
+
+https://www.burgerstudies.ru/
 
 Код написан в учебных целях — это урок в курсе по Python и веб-разработке на сайте [Devman](https://dvmn.org). За основу был взят код проекта [FoodCart](https://github.com/Saibharath79/FoodCart).
 
