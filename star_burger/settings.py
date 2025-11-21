@@ -13,7 +13,7 @@ env.read_env()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-ROLLBAR_ACCESS_TOKEN = os.getenv('ROLLBAR_ACCESS_TOKEN')
+ROLLBAR_ACCESS_TOKEN = env('ROLLBAR_ACCESS_TOKEN', '')
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env.bool('DEBUG', True)
 
@@ -84,8 +84,8 @@ TEMPLATES = [
 
 ROLLBAR = {
     'access_token': ROLLBAR_ACCESS_TOKEN,
-    'environment': os.getenv('ENVIRONMENT', 'production'),
-    'root': '/opt/projects/star-burger',
+    'environment': os.getenv('ENVIRONMENT', 'development'),
+    'root': BASE_DIR,
     'branch': 'master',
     'patch_debugview': False,
     'capture_ip': True,
@@ -96,10 +96,6 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
-        'rollbar': {
-            'level': 'ERROR',
-            'class': 'rollbar.logger.RollbarHandler',
-        },
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
@@ -107,17 +103,36 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'rollbar'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
         },
-        'your_app_name': {
-            'handlers': ['console', 'rollbar'],
+        'foodcartapp': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'restaurateur': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'coordinates': {
+            'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': True,
         },
     },
 }
+
+if ROLLBAR_ACCESS_TOKEN:
+    LOGGING['handlers']['rollbar'] = {
+        'level': 'ERROR',
+        'class': 'rollbar.logger.RollbarHandler',
+    }
+    for logger_config in LOGGING['loggers'].values():
+        if 'console' in logger_config['handlers']:
+            logger_config['handlers'] = ['console', 'rollbar']
 
 
 WSGI_APPLICATION = 'star_burger.wsgi.application'
@@ -178,5 +193,3 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "assets"),
     os.path.join(BASE_DIR, "bundles"),
 ]
-
-

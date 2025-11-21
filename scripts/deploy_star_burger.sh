@@ -3,6 +3,10 @@ set -e
 
 cd /opt/projects/star-burger
 
+set -a
+source .env
+set +a
+
 echo "🔄 Переключение на ветку server-config"
 git checkout server-config
 
@@ -14,8 +18,6 @@ echo "📦 Установка Python библиотек"
 source /opt/venv/star-burger/bin/activate
 pip install -r requirements.txt
 
-echo "📦 Установка Node.js библиотек"
-npm install
 
 echo "🏗️ Пересборка JS-кода"
 npm run build
