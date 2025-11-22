@@ -89,7 +89,7 @@ ROLLBAR = {
     'branch': 'master',
     'patch_debugview': False,
     'capture_ip': True,
-    'code_version': '1.0',
+    'code_version': os.getenv('COMMIT_HASH', 'unknown'),
 }
 
 LOGGING = {
