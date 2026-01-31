@@ -192,6 +192,15 @@ docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py migrate
 ```
 
+
+## Запуск проекта на сервере с помощью Docker
+
+Команда запуска: 
+
+```sh
+docker compose -f docker-compose.prod.yaml up -d --build
+```
+
 ## Настройка мониторинга ошибок с Rollbar
 
 Для мониторинга ошибок в production-окружении настроен Rollbar.
