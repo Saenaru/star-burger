@@ -163,6 +163,35 @@ Parcel будет следить за файлами в каталоге `bundle
 - `ALLOWED_HOSTS` — [см. документацию Django](https://docs.djangoproject.com/en/5.2/ref/settings/#allowed-hosts)
 - `YANDEX_GEOCODER_API_KEY` — API-ключ для [Яндекс Геокодера](https://developer.tech.yandex.ru/services). Используется для расчета расстояний между адресами.
 
+## Запуск проекта с помощью Docker
+
+Для быстрой сборки и запуска проекта на локальной машине используется Docker. Это позволяет запустить бэкенд (Django), базу данных (PostgreSQL) и сборку фронтенда одной командой.
+
+Предварительные требования
+Установленный Docker Desktop.
+
+1. Инструкция по запуску
+Подготовьте файл настроек: убедитесь, что DATABASE_URL в .env указывает на контейнер базы данных: DATABASE_URL=postgres://star_burger_user:ваш_пароль@db:5432/star_burger.
+
+2. Соберите и запустите контейнеры:
+
+```sh
+docker compose up -d --build
+```
+
+Эта команда соберет фронтенд через Parcel и запустит Django-сервер вместе с PostgreSQL в фоновом режиме.
+3. При первом запуске необходимо создать структуру таблиц в базе данных:
+
+```sh
+docker compose exec backend python manage.py migrate
+```
+
+4. Создайте суперпользователя:
+
+```sh
+docker compose exec backend python manage.py migrate
+```
+
 ## Настройка мониторинга ошибок с Rollbar
 
 Для мониторинга ошибок в production-окружении настроен Rollbar.
